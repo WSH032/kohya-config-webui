@@ -300,12 +300,14 @@ def write_files(write_files_dir):
         dreambooth_arguments = { key: all.get(key) for key in ["train_data_dir", "reg_data_dir", "prior_loss_weight"] }
 
         #saving_arguments部分
-        saving_arguments = { key: all.get(key) for key in ["output_dir",\
-                                      "output_name", "save_every_n_epochs", "save_n_epoch_ratio",\
+        saving_arguments = { key: all.get(key) for key in ["output_name", "save_every_n_epochs", "save_n_epoch_ratio",\
                                       "save_last_n_epochs", "save_state", "save_model_as" ]
         }
+        """在输出文件夹output_dir后面加上output_name"""
+        output_dir = os.path.join( all.get("output_dir"), all.get("output_name") )
+        saving_arguments.update( {"output_dir":output_dir } )
         """ 指定log输出目录与output相同 """
-        saving_arguments.update( { "logging_dir":os.path.join( all.get("output_dir"), "logs" ) } )
+        saving_arguments.update( { "logging_dir":os.path.join( output_dir, "logs" ) } )
         """ 指定log前缀和输出名字相同 """
         saving_arguments.update( { "log_prefix":all.get("output_name") } )
         
