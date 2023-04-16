@@ -14,8 +14,9 @@ A WebUI for making config files used by kohya_sd_script
 [![](https://img.shields.io/static/v1?message=Open%20in%20Colab&logo=googlecolab&labelColor=5c5c5c&color=0f80c1&label=%20&style=flat)](https://colab.research.google.com/github/WSH032/kohya-config-webui/blob/main/kohya_train_webui.ipynb)
     
 ## Todo
-1.   增加上一次参数保存功能
-2.   增加dataset_config.toml生成功能
+- [x] 增加上一次参数保存功能
+- [ ] 增加dataset_config.toml生成功能
+
 
 ## 其他部分展示
 ![0S2_@5B6638VJ 4%Y@TQDXK](https://user-images.githubusercontent.com/126865849/232079134-15154ccf-06ac-45a0-984f-244a6e8983f3.png)
