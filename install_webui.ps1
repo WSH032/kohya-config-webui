@@ -1,5 +1,5 @@
 function InstallFail {
-    Write-Output "å®‰è£…å¤±è´¥ã€‚"
+    Write-Output "°²×°Ê§°Ü¡£"
     Read-Host | Out-Null ;
     Exit
 }
@@ -15,21 +15,17 @@ function Check {
 }
 
 if (!(Test-Path -Path "venv")) {
-    Write-Output "æ­£åœ¨åˆ›å»ºè™šæ‹Ÿç¯å¢ƒ..."
+    Write-Output "ÕıÔÚ´´½¨ĞéÄâ»·¾³..."
     python -m venv venv
-    Check "åˆ›å»ºè™šæ‹Ÿç¯å¢ƒå¤±è´¥ï¼Œè¯·æ£€æŸ¥ python æ˜¯å¦å®‰è£…å®Œæ¯•ä»¥åŠ python ç‰ˆæœ¬æ˜¯å¦ä¸º64ä½ç‰ˆæœ¬çš„python 3.10ã€æˆ–pythonçš„ç›®å½•æ˜¯å¦åœ¨ç¯å¢ƒå˜é‡PATHå†…ã€‚"
+    Check "´´½¨ĞéÄâ»·¾³Ê§°Ü£¬Çë¼ì²é python ÊÇ·ñ°²×°Íê±ÏÒÔ¼° python °æ±¾ÊÇ·ñÎª64Î»°æ±¾µÄpython 3.10¡¢»òpythonµÄÄ¿Â¼ÊÇ·ñÔÚ»·¾³±äÁ¿PATHÄÚ¡£"
 }
 
 .\venv\Scripts\activate
-Check "æ¿€æ´»è™šæ‹Ÿç¯å¢ƒå¤±è´¥ã€‚"
+Check "¼¤»îĞéÄâ»·¾³Ê§°Ü¡£"
 
-Write-Output "å®‰è£…ä¾èµ–"
+Write-Output "°²×°ÒÀÀµ"
 pip install -r requirements.txt -i https://mirrors.bfsu.edu.cn/pypi/web/simple
-Check "gradioè£…å¤±è´¥ã€‚"
+Check "ÒÀÀµ°²×°Ê§°Ü¡£"
 
-
-
-
-
-Write-Output "å®‰è£…å®Œæ¯•"
+Write-Output "°²×°Íê±Ï"
 Read-Host | Out-Null ;
