@@ -14,6 +14,25 @@ Created by [WSH](https://space.bilibili.com/8417436)
 """
 
 
+"""
+《维护指南》：
+如果你想为webui三个选项卡中任意一个选项卡添加一个新的组件，并以其值指定toml文件相应的参数
+1、
+去webui部分添加相应的组件代码，并给新的组件命名。
+**如：在common参数部分添加 new_param = gr.Number(value=3)
+2、
+在相应的parameter_dict_key_list中加上该组件变量名字。
+**对于上面的例子： parameter_dict_key_list.append("new_param")
+运行、在webui中确认参数后，相应的组件值会被储存在相应的全局变量parameter_dict中
+**对于上面的例子common_parameter_dict.get("new_param")    #ouput=3
+3、
+找到parameter2toml()函数, 确认你要写入toml文件的位置，比如说你想在[model_arguments]键下面添加一个 new_param=3
+那么请用model_arguments.update( "new_param":all.get("new_param")  )
+注意这里用的是all这个字典，因为在parameter2toml()一开始就会把三个全局参数字典合成一个all字典
+4、
+完成，检查生成的toml是否正确
+"""
+
 #@title 函数部分
 
 
@@ -22,20 +41,23 @@ import toml
 import warnings
 import gradio as gr
 
+#用于储存适三个选项卡中输入组件的名字
 common_parameter_dict_key_list=[]
 sample_parameter_dict_key_list=[]
 plus_parameter_dict_key_list=[]
 all_parameter_dict_key_list=[]  #后面会有一次all_parameter_dict_key_list = common_parameter_dict_key_list + sample_parameter_dict_key_list + plus_parameter_dict_key_list
     
-
+#用于储存所有确认的组件值，如训练集地址
 common_parameter_dict=({})
 sample_parameter_dict=({})
 plus_parameter_dict=({})
 
 common_confirm_flag = False   #必须要确认常规参数一次才允许写入toml
 
+#用于确定每个选项卡中按键的数量，方便all_parameter_get
 parameter_len_dict={"common":0, "sample":0, "plus":0}
 
+#图标常量
 random_symbol = '\U0001f3b2\ufe0f'  # 🎲️
 reuse_symbol = '\u267b\ufe0f'  # ♻️
 paste_symbol = '\u2199\ufe0f'  # ↙
@@ -49,6 +71,9 @@ folder_symbol = '\U0001f4c2'  # 📂
 
 
 def check_len_and_2dict(args, parameter_len_dict_value, parameter_dict_key_list, func_name=""):
+    """ 三个parameter_get()会把gradio组件的值传进来，检查传入值数量和parameter_len_dict_value是否相等 """
+    """ 相等则返回以parameter_dict_key_list中字符串做为key名字的字典 """
+    """ 不相等就给一个wanring """
     if len(args) != parameter_len_dict_value:
         warnings.warn(f"传入{func_name}的参数长度不匹配", UserWarning)
     if len(parameter_dict_key_list) != parameter_len_dict_value:
@@ -56,6 +81,9 @@ def check_len_and_2dict(args, parameter_len_dict_value, parameter_dict_key_list,
     parameter_dict = dict(zip(parameter_dict_key_list, args))
     return parameter_dict
 
+
+""" 下面三个函数会获取各自选项卡中的输入值，然后使用将其转为字典并赋值给各自的全局变量parameter_dict """
+""" 最后返回webui相应的输出信息 """
 def common_parameter_get(*args):
     global common_parameter_dict, common_confirm_flag
     common_confirm_flag = True    #必须要确认常规参数一次才允许写入toml
@@ -80,9 +108,11 @@ def plus_parameter_get(*args):
     return plus_parameter_toml,  plus_parameter_title
 
 
+"""  调用上面上个函数来确认全部参数值，并赋值给三个全局字典parameter_dict """
 def all_parameter_get(*args):
     if len(args) != sum( parameter_len_dict.values() ):
          warnings.warn(f"传入all_parameter_get的参数长度不匹配", UserWarning)
+    """ 通过parameter_len_dict字典中记录的各个选项卡输入组件数量来分配传入三个子函数的参数 """
     common_parameter_toml,  common_parameter_title = common_parameter_get( *args[ : parameter_len_dict["common"] ] )
     sample_parameter_toml,  sample_parameter_title = sample_parameter_get( *args[ parameter_len_dict["common"] : parameter_len_dict["common"] + parameter_len_dict["sample"] ] )
     plus_parameter_toml,  plus_parameter_title = plus_parameter_get( *args[ -parameter_len_dict["plus"] : ] )
@@ -90,6 +120,7 @@ def all_parameter_get(*args):
 
                       
 def save_webui_config(save_webui_config_dir, save_webui_config_name, write_files_dir):
+    """ 保存当前已经确认（在三个参数字典中，而不是webui中组件值）的配置参数 """
     os.makedirs(save_webui_config_dir, exist_ok=True)
     
     other = {"write_files_dir":write_files_dir}
@@ -103,6 +134,7 @@ def save_webui_config(save_webui_config_dir, save_webui_config_name, write_files
     return f"保存webui配置成功，文件在{save_webui_config_path}"
 
 def read_webui_config_get(read_webui_config_dir):
+    """ 读取目录下以.toml结尾的文件，返回一个读取到的文件list来更新gradio组件 """
     try:
         files = [f for f in os.listdir(read_webui_config_dir) if f.endswith(".toml") ]
         if files:
@@ -111,13 +143,16 @@ def read_webui_config_get(read_webui_config_dir):
             return gr.update( choices=[],value="没有找到webui配置文件" )
     except Exception as e:
         return gr.update( choices=[], value=f"错误的文件夹路径:{e}" )
-
+    
 def read_webui_config(read_webui_config_dir, read_webui_config_name, write_files_dir, *args):
-    dir_change_flag = False
+    """ 读取预先保存的config文件，来更新webui界面(注意，不更新参数字典，需要用户手动确认) """
+    
+    dir_change_flag = False         #读取完保存的config文件后会修改写入文件夹这一组件，这里会判断是否修改，如修改给webui一个提示
+    #检查传入的更新组件数量是否和webui中一致
     param_len = sum( parameter_len_dict.values() )
     if len(args) != param_len:
         warnings.warn(f"传入read_webui_config的*args长度不匹配", UserWarning)
-    
+
     read_webui_config_path = os.path.join(read_webui_config_dir, read_webui_config_name)
     #能打开就正常操作
     try:
@@ -163,6 +198,7 @@ def read_webui_config(read_webui_config_dir, read_webui_config_name, write_files
     
 
 def model_get(model_dir):
+    """ 读取文件夹目录下的所有文件 """
     try:
         files = [f for f in os.listdir(model_dir) if os.path.isfile(os.path.join(model_dir, f))]
         if files:
@@ -174,11 +210,12 @@ def model_get(model_dir):
 
 
 def write_files(write_files_dir):
+    """ 用参数字典生成为kohya训练脚本要求的toml格式文件 """
 
     if not common_confirm_flag:
         return "必须要确认常规参数一次才允许写入toml"
 
-    write_files_dir = write_files_dir if write_files_dir else os.getcwd()
+    write_files_dir = write_files_dir if write_files_dir else os.path.join(os.getcwd(), "kohya_config")
     os.makedirs(write_files_dir, exist_ok=True)
     config_file_toml_path = os.path.join(write_files_dir, "config_file.toml")
     sample_prompts_txt_path = os.path.join(write_files_dir, "sample_prompts.txt")
@@ -325,11 +362,15 @@ def write_files(write_files_dir):
         return toml_str
     def sample_parameter2txt():
         #key_list = ["prompt", "negative", "sample_width", "sample_height", "sample_scale", "sample_steps", "sample_seed"]
+        
+        prompt = all.get("prompt").replace("\n", "")
+        negative = all.get("negative").replace("\n", "")
+        
 
-        if not all.get('sample_seed'):    #如果采样部分没确认过，会出现all.get('sample_seed')=None > 0造成报错
+        if not all.get("sample_seed"):    #如果采样部分没确认过，会出现all.get('sample_seed')=None > 0造成报错
             return ""
-        sample_str = f"""{all.get("prompt")}  \
---n {all.get("negative")}  \
+        sample_str = f"""{prompt}  \
+--n {negative}  \
 --w {all.get("sample_width")}  \
 --h {all.get("sample_height")}  \
 --l {all.get("sample_scale")}  \
@@ -366,7 +407,7 @@ with gr.Blocks() as demo:
     with gr.Row():
         write_files_button = gr.Button("生成toml参数与采样配置文件")
         all_parameter_get_button = gr.Button("全部参数确认")
-        write_files_dir = gr.Textbox( lines=1, label="写入文件夹", placeholder="一般填kohya_script目录，留空就默认根目录", value="" )
+        write_files_dir = gr.Textbox( lines=1, label="写入文件夹", placeholder="一般填kohya_script目录，留空就默认根目录下的kohya_config文件夹", value="" )
     write_files_title = gr.Markdown("生成适用于kohya/train_network.py的配置文件")
     with gr.Tabs():
         with gr.TabItem("基础参数"):
@@ -522,6 +563,8 @@ with gr.Blocks() as demo:
 
 
     def dict_key_list_2_list(dict_key_list):
+        """ 输入一个字符串list，将会从全局变量中找到同样名字的变量（在这里为webui中组件变量）来返回parameter_list方便向三个parameter_get()函数传递"""
+        """ 同时返回parameter_list的长度，方便确认各标签页中组件数 """
         list = []
         for key in dict_key_list:
             try:
@@ -604,7 +647,7 @@ with gr.Blocks() as demo:
                     "conv_block_alphas"]
     plus_parameter_list, parameter_len_dict["plus"] = dict_key_list_2_list(plus_parameter_dict_key_list)
 
-    #注意，这几个list相加的顺序不能错
+    #注意，这几个list相加的顺序不能错,但是上面三个parameter_dict_key_list内的字符串元素顺序可以变(建议不要这么做)
     all_parameter_list = common_parameter_list + sample_parameter_list + plus_parameter_list
     all_parameter_dict_key_list = common_parameter_dict_key_list + sample_parameter_dict_key_list + plus_parameter_dict_key_list
 
@@ -651,4 +694,4 @@ with gr.Blocks() as demo:
 
 
 if __name__ == "__main__":
-    demo.launch(share=False,inbrowser=False,inline=True,debug=True)
+    demo.launch(share=False,inbrowser=False,inline=True,debug=False)
