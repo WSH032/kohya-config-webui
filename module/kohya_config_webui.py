@@ -542,13 +542,13 @@ with gr.Blocks() as demo:
                 with gr.Row():
                     with gr.Column(scale=15):
                         up_lr_weight = gr.Textbox(lines=1, label="上层学习率权重", placeholder="留空则不启用",\
-                                      info="15层，例如1.5,1.5,1.5,1.5,1.0,1.0,1.0,1.0,0.5,0.5,0.5,0.5", value="")
+                                      info="12层，例如1.5,1.5,1.5,1.5,1.0,1.0,1.0,1.0,0.5,0.5,0.5,0.5", value="")
                     with gr.Column(scale=1):
                         mid_lr_weight = gr.Textbox(lines=1, label="中层学习率权重", placeholder="留空则不启用",\
                                       info="1层，例如2.0", value="")
                     with gr.Column(scale=15):
                         down_lr_weight = gr.Textbox(lines=1, label="下层学习率权重", placeholder="留空则不启用",\
-                                      info="15层，例如0.5,0.5,0.5,0.5,1.0,1.0,1.0,1.0,1.5,1.5,1.5,1.5", value="")
+                                      info="12层，例如0.5,0.5,0.5,0.5,1.0,1.0,1.0,1.0,1.5,1.5,1.5,1.5", value="")
                 gr.Markdown("dim和alpha分层，为不同层的结构指定不同的dim和alpha（`DyLoRa`无法使用，卷积分层只有`LoRa-C3Lier、LoCon、LoHa`可以使用）")
                 with gr.Row():
                         block_dims = gr.Textbox(lines=1, label="线性dim分层", placeholder="留空则不启用",\
