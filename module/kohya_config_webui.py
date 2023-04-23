@@ -347,8 +347,20 @@ def write_files(write_files_dir):
         saving_arguments.update( { "logging_dir":os.path.join( output_dir, "logs" ) } )
         """ 指定log前缀和输出名字相同 """
         saving_arguments.update( { "log_prefix":all.get("output_name") } )
-        
+        """ 启用wandb"""
+            #决定log记录方式
+        if all.get("use_wandb"):
+            saving_arguments.update( { "log_with":"all" } )
+        else:
+            saving_arguments.update( { "log_with":"tensorboard" } )
+            #api_key和log_tracker_name的指定
+        if all.get("wandb_api_key"):
+            saving_arguments.update( { "wandb_api_key":all.get("wandb_api_key") } )
+        if all.get("log_tracker_name"):
+            saving_arguments.update( { "log_tracker_name":all.get("log_tracker_name") } )
 
+                                      
+        ##合成总字典
         toml_dict = {"model_arguments":model_arguments,
                "additional_network_arguments":additional_network_arguments,
                "optimizer_arguments":optimizer_arguments,
@@ -458,6 +470,13 @@ with gr.Blocks() as demo:
                     save_last_n_epochs = gr.Slider(1, 499, step=1, value=499, label="最多保存n个（后面的出来就会把前面删了,优先级最高）")
                 with gr.Row():   
                     save_state = gr.Checkbox(label="保存学习状态",value=False)
+                with gr.Accordion("启用远程记录", open=False):
+                        with gr.Row():
+                            gr.Markdown( "[你可以在这里找到api_key](https://wandb.ai/authorize)")
+                        with gr.Row():
+                            use_wandb = gr.Checkbox(label="是否使用wandb远程记录", value= False)
+                            wandb_api_key = gr.Textbox(label="wandb_api_key", placeholder="第一次使用，或者需要切换新API的时候，请填入", value="")
+                            log_tracker_name = gr.Textbox(label="log_tracker_name项目名称", placeholder="留空则指定为network_train",value="")
             with gr.Row():
                 optimizer_type = gr.Dropdown(["AdamW8bit", "Lion", "DAdaptation", "AdamW", "SGDNesterov", "SGDNesterov8bit", "AdaFactor"],\
                                 label="optimizer_type优化器类型", value="AdamW8bit")
@@ -597,6 +616,9 @@ with gr.Blocks() as demo:
                       "save_n_epoch_ratio",
                       "save_last_n_epochs",
                       "save_state",
+                      "use_wandb",
+                      "wandb_api_key",
+                      "log_tracker_name",
                       "optimizer_type",
                       "unet_lr",
                       "text_encoder_lr",
