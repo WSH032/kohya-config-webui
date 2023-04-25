@@ -390,12 +390,13 @@ def write_files(write_files_dir):
     def sample_parameter2txt():
         #key_list = ["prompt", "negative", "sample_width", "sample_height", "sample_scale", "sample_steps", "sample_seed"]
         
+        #如果采样部分没确认过，这个值=None；或者没写任何prompt；就直接退出,返回一个空字符串
+        if not all.get("prompt"):
+            return ""
+        #允许分行
         prompt = all.get("prompt").replace("\n", "")
         negative = all.get("negative").replace("\n", "")
-        
-
-        if not all.get("sample_seed"):    #如果采样部分没确认过，会出现all.get('sample_seed')=None > 0造成报错
-            return ""
+        #生成采样文件str
         sample_str = f"""{prompt}  \
 --n {negative}  \
 --w {all.get("sample_width")}  \
