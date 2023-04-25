@@ -40,21 +40,6 @@ import os
 import toml
 import warnings
 import gradio as gr
-import argparse
-
-#用命令行参数指定默认webui组件config保存、读写路径和名字
-parser = argparse.ArgumentParser()
-
-ROOT_DIR = os.getcwd()
-DEFAULT_SAVE_AND_READ_DIR = os.path.join(ROOT_DIR, "kohya_config_webui_save")
-
-parser.add_argument("--save_dir", type=str, default=DEFAULT_SAVE_AND_READ_DIR, help="webui组件config默认保存路径")
-parser.add_argument("--save_name", type=str, default="kohya_config_webui_save.toml", help="webui组件config默认保存名字")
-parser.add_argument("--read_dir", type=str, default=DEFAULT_SAVE_AND_READ_DIR, help="webui组件config默认读取路径")
-parser.add_argument("--read_name", type=str, default="kohya_config_webui_save.toml", help="webui组件config默认读取名字")
-
-cmd_param = parser.parse_args()
-
 
 #用于储存适三个选项卡中输入组件的名字
 common_parameter_dict_key_list=[]
@@ -230,7 +215,7 @@ def write_files(write_files_dir):
     if not common_confirm_flag:
         return "必须要确认常规参数一次才允许写入toml"
 
-    write_files_dir = write_files_dir if write_files_dir else os.path.join(ROOT_DIR, "kohya_config")
+    write_files_dir = write_files_dir if write_files_dir else os.path.join(os.getcwd(), "kohya_config")
     os.makedirs(write_files_dir, exist_ok=True)
     config_file_toml_path = os.path.join(write_files_dir, "config_file.toml")
     sample_prompts_txt_path = os.path.join(write_files_dir, "sample_prompts.txt")
@@ -424,14 +409,14 @@ with gr.Blocks() as demo:
         with gr.Row():
             save_webui_config_button = gr.Button("保存")
         with gr.Row():
-            save_webui_config_dir = gr.Textbox(lines=1, label="保存目录", value=cmd_param.save_dir )
-            save_webui_config_name = gr.Textbox(lines=1, label="保存名字（以toml为扩展名，否则不会被读取）", value=cmd_param.save_name )
+            save_webui_config_dir = gr.Textbox(lines=1, label="保存目录", value=os.path.join(os.getcwd(),"kohya_config_webui_save") )
+            save_webui_config_name = gr.Textbox(lines=1, label="保存名字（以toml为扩展名，否则不会被读取）", value="kohya_config_webui_save.toml" )
         with gr.Row():
             read_webui_config_get_button = gr.Button(refresh_symbol)
             read_webui_config_button = gr.Button("读取")
         with gr.Row():
-            read_webui_config_dir = gr.Textbox(lines=1, label="读取目录", value=cmd_param.read_dir )  
-            read_webui_config_name = gr.Dropdown(choices=[], label="读取文件", value=cmd_param.read_name )          
+            read_webui_config_dir = gr.Textbox(lines=1, label="读取目录", value=os.path.join(os.getcwd(),"kohya_config_webui_save") )  
+            read_webui_config_name = gr.Dropdown(choices=[], label="读取文件", value="" )          
     with gr.Row():
         write_files_button = gr.Button("生成toml参数与采样配置文件")
         all_parameter_get_button = gr.Button("全部参数确认")
@@ -477,7 +462,7 @@ with gr.Blocks() as demo:
                 max_train_value = gr.Number(label="最大训练epochs\steps数", value=10, precision=0)
             with gr.Accordion("输出设置", open=True):
                 with gr.Row():
-                    output_dir = gr.Textbox( label="模型、log日志输出地址（自行修改）", placeholder="文件夹路径",value=os.path.join(ROOT_DIR,"output") )
+                    output_dir = gr.Textbox( label="模型、log日志输出地址（自行修改）", placeholder="文件夹路径",value=os.path.join(os.getcwd(),"output") )
                     output_name = gr.Textbox(label="输出模型名称（自行修改）", placeholder="名称",value="output_name")
                     save_model_as = gr.Dropdown(["safetensors","ckpt","pt"], label="保存模型格式", value="safetensors")
                 with gr.Row():
@@ -732,4 +717,4 @@ with gr.Blocks() as demo:
 
 
 if __name__ == "__main__":
-    demo.launch(share=False,inbrowser=True,inline=True,debug=False)
+    demo.launch(share=False,inbrowser=False,inline=True,debug=False)
