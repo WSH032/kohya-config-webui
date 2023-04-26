@@ -127,3 +127,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+module/kohya_config_webui_save/
+module/kohya_config/
+module/kohya_config/

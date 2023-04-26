@@ -40,34 +40,28 @@ import os
 import toml
 import warnings
 import gradio as gr
+import argparse
 
-#用于储存适三个选项卡中输入组件的名字
+
+""" 以下的变量，标注gloab的是要在函数和webui部分同时使用的 """
+
+ROOT_DIR = os.getcwd()      #global
+
+#用于储存适三个选项卡中输入组件的名字;  global
 common_parameter_dict_key_list=[]
 sample_parameter_dict_key_list=[]
 plus_parameter_dict_key_list=[]
 all_parameter_dict_key_list=[]  #后面会有一次all_parameter_dict_key_list = common_parameter_dict_key_list + sample_parameter_dict_key_list + plus_parameter_dict_key_list
     
-#用于储存所有确认的组件值，如训练集地址
+#用于储存所有确认的组件值，如训练集地址； （只会在函数部分使用）
 common_parameter_dict=({})
 sample_parameter_dict=({})
 plus_parameter_dict=({})
 
-common_confirm_flag = False   #必须要确认常规参数一次才允许写入toml
+common_confirm_flag = False   #必须要确认常规参数一次才允许写入toml； （只会在函数部分使用）
 
-#用于确定每个选项卡中按键的数量，方便all_parameter_get
-parameter_len_dict={"common":0, "sample":0, "plus":0}
-
-#图标常量
-random_symbol = '\U0001f3b2\ufe0f'  # 🎲️
-reuse_symbol = '\u267b\ufe0f'  # ♻️
-paste_symbol = '\u2199\ufe0f'  # ↙
-refresh_symbol = '\U0001f504'  # 🔄
-save_style_symbol = '\U0001f4be'  # 💾
-apply_style_symbol = '\U0001f4cb'  # 📋
-clear_prompt_symbol = '\U0001f5d1\ufe0f'  # 🗑️
-extra_networks_symbol = '\U0001F3B4'  # 🎴
-switch_values_symbol = '\U000021C5' # ⇅
-folder_symbol = '\U0001f4c2'  # 📂
+#用于确定每个选项卡中按键的数量，方便all_parameter_get;  global
+parameter_len_dict={"common":0, "sample":0, "plus":0}       
 
 
 def check_len_and_2dict(args, parameter_len_dict_value, parameter_dict_key_list, func_name=""):
@@ -111,7 +105,7 @@ def plus_parameter_get(*args):
 """  调用上面上个函数来确认全部参数值，并赋值给三个全局字典parameter_dict """
 def all_parameter_get(*args):
     if len(args) != sum( parameter_len_dict.values() ):
-         warnings.warn(f"传入all_parameter_get的参数长度不匹配", UserWarning)
+         warnings.warn("传入all_parameter_get的参数长度不匹配", UserWarning)
     """ 通过parameter_len_dict字典中记录的各个选项卡输入组件数量来分配传入三个子函数的参数 """
     common_parameter_toml,  common_parameter_title = common_parameter_get( *args[ : parameter_len_dict["common"] ] )
     sample_parameter_toml,  sample_parameter_title = sample_parameter_get( *args[ parameter_len_dict["common"] : parameter_len_dict["common"] + parameter_len_dict["sample"] ] )
@@ -136,7 +130,7 @@ def save_webui_config(save_webui_config_dir, save_webui_config_name, write_files
 def read_webui_config_get(read_webui_config_dir):
     """ 读取目录下以.toml结尾的文件，返回一个读取到的文件list来更新gradio组件 """
     try:
-        files = [f for f in os.listdir(read_webui_config_dir) if f.endswith(".toml") ]
+        files = [f for f in os.listdir(read_webui_config_dir) if os.path.isfile(os.path.join(read_webui_config_dir, f)) and f.endswith(".toml") ]
         if files:
             return gr.update( choices=files,value=files[0] )
         else:
@@ -151,7 +145,7 @@ def read_webui_config(read_webui_config_dir, read_webui_config_name, write_files
     #检查传入的更新组件数量是否和webui中一致
     param_len = sum( parameter_len_dict.values() )
     if len(args) != param_len:
-        warnings.warn(f"传入read_webui_config的*args长度不匹配", UserWarning)
+        warnings.warn("传入read_webui_config的*args长度不匹配", UserWarning)
 
     read_webui_config_path = os.path.join(read_webui_config_dir, read_webui_config_name)
     #能打开就正常操作
@@ -172,7 +166,10 @@ def read_webui_config(read_webui_config_dir, read_webui_config_name, write_files
         both_key = set(all_parameter_dict_key_list) & set(param_dict_key_list)
         parameter_unique_key = set(all_parameter_dict_key_list) - set(both_key)
         config_unique_key = set(param_dict_key_list) - set(both_key)
-        #赋值
+        
+        
+        
+        #对共有的组件进行赋值
         count = 0
         if both_key:
             args = list(args)
@@ -180,12 +177,48 @@ def read_webui_config(read_webui_config_dir, read_webui_config_name, write_files
                 index = all_parameter_dict_key_list.index(key)
                 args[ index ] = config_dict["param"][key]
                 count += 1
+            
+            def get_files_name_list(files_dir:str) -> list:
+                """
+                读取dir路径下的全部文件，返回一个字符串列表 
+                用于更新base_model_name和vae_model_name组件
+                """
+                try:
+                    #尝试读取
+                    files = [ f for f in os.listdir(files_dir) if os.path.isfile(os.path.join(files_dir, f)) ]
+                    #读取到了就返回
+                    if files:
+                        return files
+                    #读取不到就返回空字符串列表
+                    else:
+                        return [""]
+                except Exception:
+                    #读取不到就返回空字符串列表
+                    return [""]
+                
+            def update_gr_model_list(model_dir_gr_name:str, model_name_gr_name:str):
+                #如果保存的webui组件config文件中有模型路径的记录
+                if model_dir_gr_name in both_key:
+                    #就尝试读取该路径下的所有文件
+                    model_name_list = get_files_name_list( config_dict["param"][model_dir_gr_name] )
+                    #如果model_name在这个列表中，就保持；如果不在，就为列表第一个元素
+                    model_name = config_dict.get("param",{}).get(model_name_gr_name,"")
+                    model_name = model_name if model_name in model_name_list else model_name_list[0]
+                    #找到该gr组件在args中的索引
+                    index = all_parameter_dict_key_list.index(model_name_gr_name)
+                    args[ index ] = gr.update( choices=model_name_list, value=model_name  )
+            
+            update_gr_model_list("base_model_dir", "base_model_name")
+            update_gr_model_list("vae_model_dir", "vae_model_name")
+            
             args = tuple(args)
-        read_done = f"\n读取完成,WebUI中共有{param_len}项参数,更新了其中{count}项\n" + f"写入文件夹发生改变:{write_files_dir}" if dir_change_flag else ""
+            
+ 
+        read_done = f"\n读取完成,WebUI中共有{param_len}项参数,更新了其中{count}项\n" + (f"写入文件夹发生改变:{write_files_dir}" if dir_change_flag else "")
         config_warning = f"\nwebui-config文件中以下参数可能已经失效或错误：\n{config_unique_key}\n" if config_unique_key else ""
         parameter_warning = f"\nWebUI中以下参数在webui-config文件中未找到，不发生修改：\n{parameter_unique_key}\n" if parameter_unique_key else ""
-        str = read_done + config_warning + parameter_warning
-        return  str, write_files_dir, *args
+        read_str = f"{read_done}{config_warning}{parameter_warning}"
+        return  read_str, write_files_dir, *args
 
     #打不开就返回原值
     except FileNotFoundError:
@@ -200,6 +233,7 @@ def read_webui_config(read_webui_config_dir, read_webui_config_name, write_files
 def model_get(model_dir):
     """ 读取文件夹目录下的所有文件 """
     try:
+        #files = [f for f in os.listdir(model_dir) if os.path.isfile(os.path.join(model_dir, f)) and f.endswith(("ckpt", "pt", "safetensors")) ]
         files = [f for f in os.listdir(model_dir) if os.path.isfile(os.path.join(model_dir, f))]
         if files:
             return gr.update( choices=files,value=files[0] )
@@ -215,7 +249,7 @@ def write_files(write_files_dir):
     if not common_confirm_flag:
         return "必须要确认常规参数一次才允许写入toml"
 
-    write_files_dir = write_files_dir if write_files_dir else os.path.join(os.getcwd(), "kohya_config")
+    write_files_dir = write_files_dir if write_files_dir else os.path.join(ROOT_DIR, "kohya_config")
     os.makedirs(write_files_dir, exist_ok=True)
     config_file_toml_path = os.path.join(write_files_dir, "config_file.toml")
     sample_prompts_txt_path = os.path.join(write_files_dir, "sample_prompts.txt")
@@ -264,7 +298,7 @@ def write_files(write_files_dir):
                 else:
                     network_module_args = [f"unit={unit}"]
             else: 
-                warnings.warn(f"训练方法参数生成出错", UserWarning)
+                warnings.warn("训练方法参数生成出错", UserWarning)
             return network_module, network_module_args
         network_module, network_module_args = network_module_param( all.get("train_method") )
         #更多network_args部分（主要为分层训练）
@@ -333,8 +367,16 @@ def write_files(write_files_dir):
         if all.get("sample_every_n_type"):    #如果采样部分没确认过一次，会出现all.get("sample_every_n_type")=None:None的字典造成报错
             sample_prompt_arguments.update( {all.get("sample_every_n_type"):all.get("sample_every_n_type_value")} )
 
+
         #dreambooth_arguments部分
-        dreambooth_arguments = { key: all.get(key) for key in ["train_data_dir", "reg_data_dir", "prior_loss_weight"] }
+        def creat_dreambooth_arguments_list(use_reg:bool) -> list:
+            if use_reg:
+                return ["train_data_dir", "reg_data_dir", "prior_loss_weight"]
+            else:
+                return ["train_data_dir"]
+            
+        dreambooth_arguments = { key: all.get(key) for key in creat_dreambooth_arguments_list( all.get("use_reg") ) }
+
 
         #saving_arguments部分
         saving_arguments = { key: all.get(key) for key in ["output_name", "save_every_n_epochs", "save_n_epoch_ratio",\
@@ -397,324 +439,408 @@ def write_files(write_files_dir):
 
     write(parameter2toml(), config_file_toml_path)
     write(sample_parameter2txt(), sample_prompts_txt_path)
-    write_files_title = f"写入成功, 训练配置文件在{config_file_toml_path}, 采样参数文件在{sample_prompts_txt_path}"
+    write_files_title = f"写入成功, 训练配置文件在{config_file_toml_path} , 采样参数文件在{sample_prompts_txt_path}"
     return write_files_title
 
 #@title WebUI部分
+def create_demo(parser_input:list=[]):
+    
+    #用命令行参数指定默认webui组件config保存、读写路径和名字
+    parser = argparse.ArgumentParser()
 
+    DEFAULT_SAVE_AND_READ_DIR = os.path.join(ROOT_DIR, "kohya_config_webui_save")
 
-with gr.Blocks() as demo:
-    with gr.Accordion("保存、读取\nwebui配置", open=False):
-        save_read_webui_config_title = gr.Markdown("保存或读取")
+    parser.add_argument("--save_dir", type=str, default=DEFAULT_SAVE_AND_READ_DIR, help="webui组件config默认保存路径")
+    parser.add_argument("--save_name", type=str, default="kohya_config_webui_save.toml", help="webui组件config默认保存名字")
+    parser.add_argument("--read_dir", type=str, default=DEFAULT_SAVE_AND_READ_DIR, help="webui组件config默认读取路径")
+    #parser.add_argument("--read_name", type=str, default="kohya_config_webui_save.toml", help="webui组件config默认读取名字")
+    
+    #如果直接调用就获取命令行参数
+    if __name__ == "__main__":
+        cmd_param, unknown = parser.parse_known_args()
+    #如果是被导入，就由create_demo(parser_input:list=[])来指定参数
+    else:
+        cmd_param, unknown = parser.parse_known_args(parser_input)
+    
+    #图标常量
+    """
+    random_symbol = '\U0001f3b2\ufe0f'  # 🎲️
+    reuse_symbol = '\u267b\ufe0f'  # ♻️
+    paste_symbol = '\u2199\ufe0f'  # ↙
+    save_style_symbol = '\U0001f4be'  # 💾
+    apply_style_symbol = '\U0001f4cb'  # 📋
+    clear_prompt_symbol = '\U0001f5d1\ufe0f'  # 🗑️
+    extra_networks_symbol = '\U0001F3B4'  # 🎴
+    switch_values_symbol = '\U000021C5' # ⇅
+    folder_symbol = '\U0001f4c2'  # 📂
+    """
+    refresh_symbol = '\U0001f504'  # 🔄
+    
+    #全局变量
+    global common_parameter_dict_key_list
+    global sample_parameter_dict_key_list
+    global plus_parameter_dict_key_list
+    global all_parameter_dict_key_list
+    global parameter_len_dict
+    
+    #用于储存组件变量，方便向botton.click函数传递
+    common_gr_dict = {}
+    sample_gr_dict = {}
+    plus_gr_dict = {}
+    all_gr_dict ={}     #后面会有一次把三个字典合起来
+    
+    def init_gr_read_name(dir:str) -> list:
+        """
+        读取dir路径下以.toml的文件，返回一个字符串列表 
+        用于初始化read_webui_config_name组件
+        """
+        try:
+            #尝试读取
+            files = [ f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f)) and f.endswith(".toml") ]
+            #读取到了就返回
+            if files:
+                return files
+            #读取不到就返回空字符串列表
+            else:
+                return [""]
+        except Exception:
+            #读取不到就返回空字符串列表
+            return [""]
+    
+    with gr.Blocks() as demo:
+        gr.Markdown("更新时间2023年4月26，如果新参数用不了，请保证kohya版本在更新时间后")
+        with gr.Accordion("保存、读取\nwebui配置", open=False):
+            save_read_webui_config_title = gr.Markdown("保存或读取")
+            with gr.Row():
+                save_webui_config_button = gr.Button("保存")
+            with gr.Row():
+                save_webui_config_dir = gr.Textbox(lines=1, label="保存目录", value=cmd_param.save_dir )
+                save_webui_config_name = gr.Textbox(lines=1, label="保存名字（以toml为扩展名，否则不会被读取）", value=cmd_param.save_name )
+            with gr.Row():
+                read_webui_config_get_button = gr.Button(refresh_symbol)
+                read_webui_config_button = gr.Button("读取")
+            with gr.Row():
+                read_webui_config_dir = gr.Textbox(lines=1, label="读取目录", value=cmd_param.read_dir )  
+                read_webui_config_name = gr.Dropdown(choices=init_gr_read_name(cmd_param.read_dir),
+                                                     label="读取文件",
+                                                     value=init_gr_read_name(cmd_param.read_dir)[0] )
         with gr.Row():
-            save_webui_config_button = gr.Button("保存")
-        with gr.Row():
-            save_webui_config_dir = gr.Textbox(lines=1, label="保存目录", value=os.path.join(os.getcwd(),"kohya_config_webui_save") )
-            save_webui_config_name = gr.Textbox(lines=1, label="保存名字（以toml为扩展名，否则不会被读取）", value="kohya_config_webui_save.toml" )
-        with gr.Row():
-            read_webui_config_get_button = gr.Button(refresh_symbol)
-            read_webui_config_button = gr.Button("读取")
-        with gr.Row():
-            read_webui_config_dir = gr.Textbox(lines=1, label="读取目录", value=os.path.join(os.getcwd(),"kohya_config_webui_save") )  
-            read_webui_config_name = gr.Dropdown(choices=[], label="读取文件", value="" )          
-    with gr.Row():
-        write_files_button = gr.Button("生成toml参数与采样配置文件")
-        all_parameter_get_button = gr.Button("全部参数确认")
-        write_files_dir = gr.Textbox( lines=1, label="写入文件夹", placeholder="一般填kohya_script目录，留空就默认根目录下的kohya_config文件夹", value="" )
-    write_files_title = gr.Markdown("生成适用于kohya/train_network.py的配置文件")
-    with gr.Tabs():
-        with gr.TabItem("基础参数"):
-            common_parameter_get_button = gr.Button("确定")
-            common_parameter_title = gr.Markdown("")
-            with gr.Accordion("当前基础参数配置", open=False):
-                common_parameter_toml = gr.Textbox(label="toml形式", placeholder="基础参数", value="")
-            with gr.Row():
-                train_data_dir = gr.Textbox(lines=1, label="train_data_dir", placeholder="训练集路径", value="")
-            with gr.Accordion("使用正则化(可选)", open=False):
+            write_files_button = gr.Button("生成toml参数与采样配置文件")
+            all_parameter_get_button = gr.Button("全部参数确认")
+            write_files_dir = gr.Textbox( lines=1, label="写入文件夹", placeholder="一般填kohya_script目录，留空就默认根目录下的kohya_config文件夹", value="" )
+        write_files_title = gr.Markdown("生成适用于kohya/train_network.py的配置文件")
+        with gr.Tabs():
+            with gr.TabItem("基础参数"):
+                common_parameter_get_button = gr.Button("确定")
+                common_parameter_title = gr.Markdown("")
+                with gr.Accordion("当前基础参数配置", open=False):
+                    common_parameter_toml = gr.Textbox(label="toml形式", placeholder="基础参数", value="")
                 with gr.Row():
-                    reg_data_dir = gr.Textbox(lines=1, label="reg_data_dir", placeholder="正则化集路径（填入意味着启用正则化）", value="")
-                    prior_loss_weight = gr.Slider(0, 1, step=0.01, value=0.3, label="正则化权重")
-            with gr.Row():
-                base_model_dir = gr.Textbox(label="底模文件夹地址", placeholder="文件夹路径", value="")
-                base_model_name = gr.Dropdown(choices=[],label="底模",value="")
-                base_model_get_button = gr.Button(refresh_symbol)
-            with gr.Accordion("使用vae(可选)", open=False):
+                    common_gr_dict["train_data_dir"] = gr.Textbox(lines=1, label="train_data_dir", placeholder="训练集路径", value="")
+                with gr.Accordion("使用正则化(可选)", open=False):
+                    with gr.Row():
+                        common_gr_dict["use_reg"] = gr.Checkbox(label="是否使用正则化",value=False)
+                    with gr.Row():
+                        common_gr_dict["reg_data_dir"] = gr.Textbox(lines=1, label="reg_data_dir", placeholder="正则化集路径（开启才有效）", value="")
+                        common_gr_dict["prior_loss_weight"] = gr.Slider(0, 1, step=0.01, value=0.3, label="正则化权重")
                 with gr.Row():
-                    use_vae = gr.Checkbox(label="是否使用vae",value=False)
+                    common_gr_dict["base_model_dir"] = gr.Textbox(label="底模文件夹地址", placeholder="文件夹路径", value="")
+                    common_gr_dict["base_model_name"] = gr.Dropdown(choices=[],label="底模",value="")
+                    base_model_get_button = gr.Button(refresh_symbol)
+                with gr.Accordion("使用vae(可选)", open=False):
+                    with gr.Row():
+                        common_gr_dict["use_vae"] = gr.Checkbox(label="是否使用vae",value=False)
+                    with gr.Row():
+                        common_gr_dict["vae_model_dir"] = gr.Textbox(label="vae文件夹地址", placeholder="文件夹路径", value="")
+                        common_gr_dict["vae_model_name"] = gr.Dropdown(choices=[],label="vae", value="")
+                        vae_model_get_button = gr.Button(refresh_symbol)
                 with gr.Row():
-                    vae_model_dir = gr.Textbox(label="vae文件夹地址", placeholder="文件夹路径", value="")
-                    vae_model_name = gr.Dropdown(choices=[],label="vae", value="")
-                    vae_model_get_button = gr.Button(refresh_symbol)
-            with gr.Row():
-                width = gr.Slider(64, 1920, step=64, value=512, label="训练分辨率（宽）width")
-                height = gr.Slider(64, 1920, step=64, value=512, label="训练分辨率（高）height")
-                batch_size = gr.Slider(1, 24, step=1, value=1, label="batch大小")
-            with gr.Row():
-                noise_offset = gr.Slider(0, 1, step=0.01, value=0.05, label="noise_offset")
-                keep_tokens = gr.Slider(0, 225, step=1, value=0, label="keep_tokens")
-                min_snr_gamma = gr.Slider(0, 100, step=0.1, value=5, label="min_snr_gamma(设置为0则不生效)")
-            """
-            with gr.Row():
-                gr.Markdown("repeat * 图片数 = 每个epoch的steps数")
-            """
-            with gr.Row():
-                max_train_method = gr.Dropdown(["max_train_epochs","max_train_steps"], label="以epochs或steps来指定最大训练时间", value="max_train_epochs")
-                max_train_value = gr.Number(label="最大训练epochs\steps数", value=10, precision=0)
-            with gr.Accordion("输出设置", open=True):
+                    common_gr_dict["width"]= gr.Slider(64, 1920, step=64, value=512, label="训练分辨率（宽）width")
+                    common_gr_dict["height"] = gr.Slider(64, 1920, step=64, value=512, label="训练分辨率（高）height")
+                    common_gr_dict["batch_size"] = gr.Slider(1, 24, step=1, value=1, label="batch大小")
                 with gr.Row():
-                    output_dir = gr.Textbox( label="模型、log日志输出地址（自行修改）", placeholder="文件夹路径",value=os.path.join(os.getcwd(),"output") )
-                    output_name = gr.Textbox(label="输出模型名称（自行修改）", placeholder="名称",value="output_name")
-                    save_model_as = gr.Dropdown(["safetensors","ckpt","pt"], label="保存模型格式", value="safetensors")
+                    common_gr_dict["noise_offset"] = gr.Slider(0, 1, step=0.01, value=0.05, label="noise_offset")
+                    common_gr_dict["keep_tokens"] = gr.Slider(0, 225, step=1, value=0, label="keep_tokens")
+                    common_gr_dict["min_snr_gamma"] = gr.Slider(0, 100, step=0.1, value=5, label="min_snr_gamma(设置为0则不生效)")
+                """
                 with gr.Row():
-                    save_every_n_epochs = gr.Slider(1, 499, step=1, value=1, label="每n个epoch保存一次")
-                    save_n_epoch_ratio = gr.Slider(1, 499, step=1, value=0, label="等间隔保存n个(如不为0，会覆盖每n个epoch保存一次)")
-                    save_last_n_epochs = gr.Slider(1, 499, step=1, value=499, label="最多保存n个（后面的出来就会把前面删了,优先级最高）")
-                with gr.Row():   
-                    save_state = gr.Checkbox(label="保存学习状态",value=False)
-                with gr.Accordion("启用远程记录", open=False):
-                        with gr.Row():
-                            gr.Markdown( "[你可以在这里找到api_key](https://wandb.ai/authorize)")
-                        with gr.Row():
-                            use_wandb = gr.Checkbox(label="是否使用wandb远程记录", value= False)
-                            wandb_api_key = gr.Textbox(label="wandb_api_key", placeholder="第一次使用，或者需要切换新API的时候，请填入", value="")
-                            log_tracker_name = gr.Textbox(label="log_tracker_name项目名称", placeholder="留空则指定为network_train",value="")
-            with gr.Row():
-                optimizer_type = gr.Dropdown(["AdamW8bit", "Lion", "DAdaptation", "AdamW", "SGDNesterov", "SGDNesterov8bit", "AdaFactor"],\
-                                label="optimizer_type优化器类型", value="AdamW8bit")
-                unet_lr = gr.Number(label="unet学习率", value=1e-4)
-                text_encoder_lr = gr.Number(label="text_encoder学习率", value=1e-5)
-            with gr.Row():
-                lr_scheduler = gr.Dropdown(["cosine_with_restarts","cosine","polynomial","linear","constant_with_warmup","constant"],\
-                               label="lr_scheduler学习率调度器", value="cosine_with_restarts")
-                lr_warmup_steps = gr.Number(label="升温步数", value=0, precision=0)
-                lr_restart_cycles = gr.Number(label="退火重启次数", value=1, precision=0)
-            with gr.Row():
-                train_method = gr.Dropdown(["LoRA-LierLa", "LoRA-C3Lier",\
-                                "LoCon_Lycoris","LoHa_Lycoris",\
-                                "DyLoRa-LierLa", "DyLoRa-C3Lier"],\
-                                label="train_method训练方法", value="LoRA-LierLa")
-                network_dim = gr.Number(label="线性dim", value=32, precision=0)
-                network_alpha = gr.Number(label="线性alpha（可以为小数）", value=16)
-            with gr.Accordion("额外网络参数(LoRA-C3Lier、LoCon、LoHa、DyLoRa-C3Lier都属于卷积,unit为DyLoRa专用)", open=True):
+                    gr.Markdown("repeat * 图片数 = 每个epoch的steps数")
+                """
                 with gr.Row():
-                    with gr.Column():
-                        conv_dim = gr.Number(label="卷积dim", info="使用DyLoRa-C3Lier时会被设置为等于基础dim", value=8, precision=0)
-                    with gr.Column():
-                        conv_alpha = gr.Number(label="卷积alpha", info="可以为小数", value=1)
-                    with gr.Column():
-                        unit = gr.Number(label="分割单位unit(整数)", info="使用DyLoRa时，请让dim为unit的倍数", value=1, precision=0)
-            with gr.Row():          
-                v2 = gr.Checkbox(label="v2")
-                v_parameterization = gr.Checkbox(label="v_parameterization")
-                lowram = gr.Checkbox(label="lowram")
-                xformers = gr.Checkbox(label="xformers",value=True)
-                cache_latents = gr.Checkbox(label="cache_latents",value=True)
-                shuffle_caption = gr.Checkbox(label="shuffle_caption",value=True)
-                enable_bucket = gr.Checkbox(label="enable_bucket",value=True)
-        with gr.TabItem("采样参数"):
-            sample_parameter_get_button = gr.Button("确定")
-            sample_parameter_title = gr.Markdown("")
-            with gr.Accordion("当前采样配置", open=False):
-                sample_parameter_toml = gr.Textbox(label="toml形式", placeholder="采样配置", value="")
-            with gr.Row():
-                #enable_sample = gr.Checkbox(label="是否启用采样功能")
-                sample_every_n_type = gr.Dropdown(["sample_every_n_epochs", "sample_every_n_steps"], label="sample_every_n_type", value="sample_every_n_epochs")
-                sample_every_n_type_value = gr.Number(label="sample_every_n_type_value", value=1, precision=0)
-            with gr.Row():
-                sample_sampler = gr.Dropdown(["ddim", "pndm", "lms", "euler", "euler_a", "heun",\
-                            "dpm_2", "dpm_2_a", "dpmsolver","dpmsolver++", "dpmsingle",\
-                            "k_lms", "k_euler", "k_euler_a", "k_dpm_2", "k_dpm_2_a"],\
-                            label="采样器", value="euler_a")
-                sample_seed = gr.Number(label="采样种子(-1不是随机，大于0才生效)", value=-1, precision=0)
-            with gr.Row():
-                sample_width = gr.Slider(64, 1920, step=64, value=512, label="采样图片宽")
-                sample_height = gr.Slider(64, 1920, step=64, value=768, label="采样图片高")
-                sample_scale = gr.Slider(1, 30, step=0.5, value=7, label="提示词相关性")
-                sample_steps = gr.Slider(1, 150, step=1, value=24, label="采样迭代步数")
-            with gr.Row():
-                prompt = gr.Textbox(lines=10, label="prompt", placeholder="正面提示词", value="(masterpiece, best quality, hires:1.2), 1girl, solo,")
-                default_negative = ("(worst quality, bad quality:1.4), "
-                          "lowres, bad anatomy, bad hands, text, error, "
-                          "missing fingers, extra digit, fewer digits, "
-                          "cropped, worst quality, low quality, normal quality, "
-                          "jpeg artifacts,signature, watermark, username, blurry,")
-                negative = gr.Textbox(lines=10, label="negative", placeholder="负面提示词", value=default_negative)
-        with gr.TabItem("进阶参数"):
-            plus_parameter_get_button = gr.Button("确定")
-            plus_parameter_title = gr.Markdown("")
-            with gr.Accordion("当前进阶参数配置", open=False):
-                plus_parameter_toml = gr.Textbox(label="toml形式", placeholder="进阶参数", value="")
-            with gr.Row():
-                use_retrain = gr.Dropdown(["no","model","state"], label="是否使用重训练", value="no")
-                retrain_dir = gr.Textbox(lines=1, label="重训练路径", placeholder="模型或者状态路径", value="")
-            with gr.Row():
-                min_bucket_reso = gr.Slider(64, 1920, step=64, value=256, label="最低桶分辨率")
-                max_bucket_reso = gr.Slider(64, 1920, step=64, value=1024, label="最高桶分辨率")
-                clip_skip = gr.Slider(0, 25, step=1, value=2, label="跳过层数")
-                max_token_length = gr.Slider(75, 225, step=75, value=225, label="训练最大token数")
-                caption_extension = gr.Textbox(lines=1, label="标签文件扩展名", placeholder="一般填.txt或.cap", value=".txt")
-                seed = gr.Number(label="种子", value=1337, precision=0)
-            with gr.Row():
-                network_train_unet_only= gr.Checkbox(label="仅训练unet网络",value=False)
-                network_train_text_encoder_only = gr.Checkbox(label="仅训练text_encoder网络",value=False)
-            with gr.Accordion("分层学习模块", open=True):
-                gr.Markdown("学习率分层，为不同层的结构指定不同学习率倍数； 如果某一层权重为0，那该层不会被创建")
+                    common_gr_dict["max_train_method"] = gr.Dropdown(["max_train_epochs","max_train_steps"], label="以epochs或steps来指定最大训练时间", value="max_train_epochs")
+                    common_gr_dict["max_train_value"] = gr.Number(label="最大训练epochs\steps数", value=10, precision=0)
+                with gr.Accordion("输出设置", open=True):
+                    with gr.Row():
+                        common_gr_dict["output_dir"] = gr.Textbox( label="模型、log日志输出地址（自行修改）", placeholder="文件夹路径",value=os.path.join(ROOT_DIR,"output") )
+                        common_gr_dict["output_name"] = gr.Textbox(label="输出模型名称（自行修改）", placeholder="名称",value="output_name")
+                        common_gr_dict["save_model_as"] = gr.Dropdown(["safetensors","ckpt","pt"], label="保存模型格式", value="safetensors")
+                    with gr.Row():
+                        common_gr_dict["save_every_n_epochs"] = gr.Slider(1, 499, step=1, value=1, label="每n个epoch保存一次")
+                        common_gr_dict["save_n_epoch_ratio"] = gr.Slider(1, 499, step=1, value=0, label="等间隔保存n个(如不为0，会覆盖每n个epoch保存一次)")
+                        common_gr_dict["save_last_n_epochs"] = gr.Slider(1, 499, step=1, value=499, label="最多保存n个（后面的出来就会把前面删了,优先级最高）")
+                    with gr.Row():   
+                        common_gr_dict["save_state"] = gr.Checkbox(label="保存学习状态",value=False)
+                    with gr.Accordion("启用远程记录", open=False):
+                            with gr.Row():
+                                gr.Markdown( "[你可以在这里找到api_key](https://wandb.ai/authorize)")
+                            with gr.Row():
+                                common_gr_dict["use_wandb"] = gr.Checkbox(label="是否使用wandb远程记录", value= False)
+                                common_gr_dict["wandb_api_key"] = gr.Textbox(label="wandb_api_key", placeholder="第一次使用，或者需要切换新API的时候，请填入", value="")
+                                common_gr_dict["log_tracker_name"] = gr.Textbox(label="log_tracker_name项目名称", placeholder="留空则指定为network_train",value="")
                 with gr.Row():
-                    with gr.Column(scale=15):
-                        up_lr_weight = gr.Textbox(lines=1, label="上层学习率权重", placeholder="留空则不启用",\
-                                      info="12层，例如1.5,1.5,1.5,1.5,1.0,1.0,1.0,1.0,0.5,0.5,0.5,0.5", value="")
-                    with gr.Column(scale=1):
-                        mid_lr_weight = gr.Textbox(lines=1, label="中层学习率权重", placeholder="留空则不启用",\
-                                      info="1层，例如2.0", value="")
-                    with gr.Column(scale=15):
-                        down_lr_weight = gr.Textbox(lines=1, label="下层学习率权重", placeholder="留空则不启用",\
-                                      info="12层，例如0.5,0.5,0.5,0.5,1.0,1.0,1.0,1.0,1.5,1.5,1.5,1.5", value="")
-                gr.Markdown("dim和alpha分层，为不同层的结构指定不同的dim和alpha（`DyLoRa`无法使用，卷积分层只有`LoRa-C3Lier、LoCon、LoHa`可以使用）")
+                    common_gr_dict["optimizer_type"] = gr.Dropdown(["AdamW8bit", "Lion", "DAdaptation", "AdamW", "SGDNesterov", "SGDNesterov8bit", "AdaFactor"],\
+                                    label="optimizer_type优化器类型", value="AdamW8bit")
+                    common_gr_dict["unet_lr"] = gr.Number(label="unet学习率", value=1e-4)
+                    common_gr_dict["text_encoder_lr"] = gr.Number(label="text_encoder学习率", value=1e-5)
                 with gr.Row():
-                        block_dims = gr.Textbox(lines=1, label="线性dim分层", placeholder="留空则不启用",\
-                                      info="25层（上中下），例如2,4,4,4,8,8,8,8,12,12,12,12,16,12,12,12,12,8,8,8,8,4,4,4,2", value="")
-                        block_alphas = gr.Textbox(lines=1, label="线性alpha分层", placeholder="留空则不启用",\
-                                      info="25层（上中下），例如2,2,2,2,4,4,4,4,6,6,6,6,8,6,6,6,6,4,4,4,4,2,2,2,2", value="")
+                    common_gr_dict["lr_scheduler"] = gr.Dropdown(["cosine_with_restarts","cosine","polynomial","linear","constant_with_warmup","constant"],\
+                                   label="lr_scheduler学习率调度器", value="cosine_with_restarts")
+                    common_gr_dict["lr_warmup_steps"] = gr.Number(label="升温步数", value=0, precision=0)
+                    common_gr_dict["lr_restart_cycles"] = gr.Number(label="退火重启次数", value=1, precision=0)
                 with gr.Row():
-                        conv_block_dims = gr.Textbox(lines=1, label="卷积dim分层", placeholder="留空则不启用",\
-                                        info="25层（上中下），例如2,2,2,2,4,4,4,4,6,6,6,6,8,6,6,6,6,4,4,4,4,2,2,2,2", value="")
-                        conv_block_alphas = gr.Textbox(lines=1, label="卷积alpha分层", placeholder="留空则不启用",\
-                                        info="25层（上中下），例如2,2,2,2,4,4,4,4,6,6,6,6,8,6,6,6,6,4,4,4,4,2,2,2,2", value="")
-
-
-    def dict_key_list_2_list(dict_key_list):
-        """ 输入一个字符串list，将会从全局变量中找到同样名字的变量（在这里为webui中组件变量）来返回parameter_list方便向三个parameter_get()函数传递"""
-        """ 同时返回parameter_list的长度，方便确认各标签页中组件数 """
-        list = []
-        for key in dict_key_list:
-            try:
-                list.append(globals()[key])
-            except KeyError:
-                print(f"Error: parameter_dict_key_list中{key}不存在")
-        list_len = len(list)
-        return list, list_len
-
-    common_parameter_dict_key_list = ["train_data_dir",
-                      "reg_data_dir",
-                      "prior_loss_weight",
-                      "base_model_dir",
-                      "base_model_name",
-                      "use_vae",
-                      "vae_model_dir",
-                      "vae_model_name",
-                      "width",
-                      "height",
-                      "batch_size",
-                      "noise_offset",
-                      "keep_tokens",
-                      "min_snr_gamma",
-                      "max_train_method",
-                      "max_train_value",
-                      "output_dir",
-                      "output_name",
-                      "save_model_as",
-                      "save_every_n_epochs",
-                      "save_n_epoch_ratio",
-                      "save_last_n_epochs",
-                      "save_state",
-                      "use_wandb",
-                      "wandb_api_key",
-                      "log_tracker_name",
-                      "optimizer_type",
-                      "unet_lr",
-                      "text_encoder_lr",
-                      "lr_scheduler",
-                      "lr_warmup_steps",
-                      "lr_restart_cycles",
-                      "train_method",
-                      "network_dim",
-                      "network_alpha",
-                      "conv_dim",
-                      "conv_alpha",
-                      "unit",
-                      "v2",
-                      "v_parameterization",
-                      "lowram",
-                      "xformers",
-                      "cache_latents",
-                      "shuffle_caption",
-                      "enable_bucket"]
-    common_parameter_list, parameter_len_dict["common"] = dict_key_list_2_list(common_parameter_dict_key_list)
-    sample_parameter_dict_key_list = ["sample_every_n_type",
-                      "sample_every_n_type_value",
-                      "sample_sampler",
-                      "sample_seed",
-                      "sample_width",
-                      "sample_height",
-                      "sample_scale",
-                      "sample_steps",
-                      "prompt",
-                      "negative"]
-    sample_parameter_list, parameter_len_dict["sample"] = dict_key_list_2_list(sample_parameter_dict_key_list)
-    plus_parameter_dict_key_list = ["use_retrain",
-                    "retrain_dir",
-                    "min_bucket_reso",
-                    "max_bucket_reso",
-                    "clip_skip",
-                    "max_token_length",
-                    "caption_extension",
-                    "seed",
-                    "network_train_unet_only",
-                    "network_train_text_encoder_only",
-                    "up_lr_weight",
-                    "mid_lr_weight",
-                    "down_lr_weight",
-                    "block_dims",
-                    "block_alphas",
-                    "conv_block_dims",
-                    "conv_block_alphas"]
-    plus_parameter_list, parameter_len_dict["plus"] = dict_key_list_2_list(plus_parameter_dict_key_list)
-
-    #注意，这几个list相加的顺序不能错,但是上面三个parameter_dict_key_list内的字符串元素顺序可以变(建议不要这么做)
-    all_parameter_list = common_parameter_list + sample_parameter_list + plus_parameter_list
-    all_parameter_dict_key_list = common_parameter_dict_key_list + sample_parameter_dict_key_list + plus_parameter_dict_key_list
-
-    save_webui_config_button.click(fn=save_webui_config,
-                    inputs=[save_webui_config_dir, save_webui_config_name, write_files_dir],
-                    outputs=save_read_webui_config_title      
-    )
-    read_webui_config_get_button.click(fn=read_webui_config_get,
-                      inputs=[read_webui_config_dir],
-                      outputs=[read_webui_config_name]       
-    )
-    read_webui_config_button.click(fn=read_webui_config,
-                    inputs=[read_webui_config_dir, read_webui_config_name, write_files_dir] + all_parameter_list,
-                    outputs=[save_read_webui_config_title, write_files_dir] + all_parameter_list
-    )
-    common_parameter_get_button.click(fn=common_parameter_get,
-                    inputs=common_parameter_list,
-                    outputs=[common_parameter_toml,  common_parameter_title]
-    )
-    sample_parameter_get_button.click(fn=sample_parameter_get,
-                    inputs=sample_parameter_list,
-                    outputs=[sample_parameter_toml,  sample_parameter_title]
-    )
-    plus_parameter_get_button.click(fn=plus_parameter_get,
-                    inputs=plus_parameter_list,
-                    outputs=[plus_parameter_toml,  plus_parameter_title]
-    )
-    all_parameter_get_button.click(fn=all_parameter_get,
-                    inputs=all_parameter_list,
-                    outputs=[common_parameter_toml, sample_parameter_toml, plus_parameter_toml,  write_files_title]
-    )
-    base_model_get_button.click(fn=model_get,
-                  inputs=[base_model_dir],
-                  outputs=[base_model_name]
-    )
-    vae_model_get_button.click(fn=model_get,
-                  inputs=[vae_model_dir],
-                  outputs=[vae_model_name]
-    )
-    write_files_button.click(fn=write_files,
-                inputs=[write_files_dir],
-                outputs=[write_files_title]
-    )
+                    common_gr_dict["train_method"] = gr.Dropdown(["LoRA-LierLa", "LoRA-C3Lier",\
+                                    "LoCon_Lycoris","LoHa_Lycoris",\
+                                    "DyLoRa-LierLa", "DyLoRa-C3Lier"],\
+                                    label="train_method训练方法", value="LoRA-LierLa")
+                    common_gr_dict["network_dim"] = gr.Number(label="线性dim", value=32, precision=0)
+                    common_gr_dict["network_alpha"] = gr.Number(label="线性alpha（可以为小数）", value=16)
+                with gr.Accordion("额外网络参数(LoRA-C3Lier、LoCon、LoHa、DyLoRa-C3Lier都属于卷积,unit为DyLoRa专用)", open=True):
+                    with gr.Row():
+                        with gr.Column():
+                            common_gr_dict["conv_dim"] = gr.Number(label="卷积dim", info="使用DyLoRa-C3Lier时会被设置为等于基础dim", value=8, precision=0)
+                        with gr.Column():
+                            common_gr_dict["conv_alpha"] = gr.Number(label="卷积alpha", info="可以为小数", value=1)
+                        with gr.Column():
+                            common_gr_dict["unit"] = gr.Number(label="分割单位unit(整数)", info="使用DyLoRa时，请让dim为unit的倍数", value=1, precision=0)
+                with gr.Row():          
+                    common_gr_dict["v2"] = gr.Checkbox(label="v2")
+                    common_gr_dict["v_parameterization"] = gr.Checkbox(label="v_parameterization")
+                    common_gr_dict["lowram"] = gr.Checkbox(label="lowram")
+                    common_gr_dict["xformers"] = gr.Checkbox(label="xformers",value=True)
+                    common_gr_dict["cache_latents"] = gr.Checkbox(label="cache_latents",value=True)
+                    common_gr_dict["shuffle_caption"] = gr.Checkbox(label="shuffle_caption",value=True)
+                    common_gr_dict["enable_bucket"] = gr.Checkbox(label="enable_bucket",value=True)
+            with gr.TabItem("采样参数"):
+                sample_parameter_get_button = gr.Button("确定")
+                sample_parameter_title = gr.Markdown("")
+                with gr.Accordion("当前采样配置", open=False):
+                    sample_parameter_toml = gr.Textbox(label="toml形式", placeholder="采样配置", value="")
+                with gr.Row():
+                    #enable_sample = gr.Checkbox(label="是否启用采样功能")
+                    sample_gr_dict["sample_every_n_type"] = gr.Dropdown(["sample_every_n_epochs", "sample_every_n_steps"], label="sample_every_n_type", value="sample_every_n_epochs")
+                    sample_gr_dict["sample_every_n_type_value"] = gr.Number(label="sample_every_n_type_value", value=1, precision=0)
+                with gr.Row():
+                    sample_gr_dict["sample_sampler"] = gr.Dropdown(["ddim", "pndm", "lms", "euler", "euler_a", "heun",\
+                                "dpm_2", "dpm_2_a", "dpmsolver","dpmsolver++", "dpmsingle",\
+                                "k_lms", "k_euler", "k_euler_a", "k_dpm_2", "k_dpm_2_a"],\
+                                label="采样器", value="euler_a")
+                    sample_gr_dict["sample_seed"] = gr.Number(label="采样种子(-1不是随机，大于0才生效)", value=-1, precision=0)
+                with gr.Row():
+                    sample_gr_dict["sample_width"] = gr.Slider(64, 1920, step=64, value=512, label="采样图片宽")
+                    sample_gr_dict["sample_height"] = gr.Slider(64, 1920, step=64, value=768, label="采样图片高")
+                    sample_gr_dict["sample_scale"] = gr.Slider(1, 30, step=0.5, value=7, label="提示词相关性")
+                    sample_gr_dict["sample_steps"] = gr.Slider(1, 150, step=1, value=24, label="采样迭代步数")
+                with gr.Row():
+                    sample_gr_dict["prompt"] = gr.Textbox(lines=10, label="prompt", placeholder="正面提示词", value="(masterpiece, best quality, hires:1.2), 1girl, solo,")
+                    default_negative_str = ("(worst quality, bad quality:1.4), "
+                              "lowres, bad anatomy, bad hands, text, error, "
+                              "missing fingers, extra digit, fewer digits, "
+                              "cropped, worst quality, low quality, normal quality, "
+                              "jpeg artifacts,signature, watermark, username, blurry,")
+                    sample_gr_dict["negative"] = gr.Textbox(lines=10, label="negative", placeholder="负面提示词", value=default_negative_str)
+            with gr.TabItem("进阶参数"):
+                plus_parameter_get_button = gr.Button("确定")
+                plus_parameter_title = gr.Markdown("")
+                with gr.Accordion("当前进阶参数配置", open=False):
+                    plus_parameter_toml = gr.Textbox(label="toml形式", placeholder="进阶参数", value="")
+                with gr.Row():
+                    plus_gr_dict["use_retrain"] = gr.Dropdown(["no","model","state"], label="是否使用重训练", value="no")
+                    plus_gr_dict["retrain_dir"] = gr.Textbox(lines=1, label="重训练路径", placeholder="模型或者状态路径", value="")
+                with gr.Row():
+                    plus_gr_dict["min_bucket_reso"] = gr.Slider(64, 1920, step=64, value=256, label="最低桶分辨率")
+                    plus_gr_dict["max_bucket_reso"] = gr.Slider(64, 1920, step=64, value=1024, label="最高桶分辨率")
+                    plus_gr_dict["clip_skip"] = gr.Slider(0, 25, step=1, value=2, label="跳过层数")
+                    plus_gr_dict["max_token_length"] = gr.Slider(75, 225, step=75, value=225, label="训练最大token数")
+                    plus_gr_dict["caption_extension"] = gr.Textbox(lines=1, label="标签文件扩展名", placeholder="一般填.txt或.cap", value=".txt")
+                    plus_gr_dict["seed"] = gr.Number(label="种子", value=1337, precision=0)
+                with gr.Row():
+                    plus_gr_dict["network_train_unet_only"]= gr.Checkbox(label="仅训练unet网络",value=False)
+                    plus_gr_dict["network_train_text_encoder_only"] = gr.Checkbox(label="仅训练text_encoder网络",value=False)
+                with gr.Accordion("分层学习模块", open=True):
+                    gr.Markdown("学习率分层，为不同层的结构指定不同学习率倍数； 如果某一层权重为0，那该层不会被创建")
+                    with gr.Row():
+                        with gr.Column(scale=15):
+                            plus_gr_dict["up_lr_weight"] = gr.Textbox(lines=1, label="上层学习率权重", placeholder="留空则不启用",\
+                                          info="12层，例如1.5,1.5,1.5,1.5,1.0,1.0,1.0,1.0,0.5,0.5,0.5,0.5", value="")
+                        with gr.Column(scale=1):
+                            plus_gr_dict["mid_lr_weight"] = gr.Textbox(lines=1, label="中层学习率权重", placeholder="留空则不启用",\
+                                          info="1层，例如2.0", value="")
+                        with gr.Column(scale=15):
+                            plus_gr_dict["down_lr_weight"] = gr.Textbox(lines=1, label="下层学习率权重", placeholder="留空则不启用",\
+                                          info="12层，例如0.5,0.5,0.5,0.5,1.0,1.0,1.0,1.0,1.5,1.5,1.5,1.5", value="")
+                    gr.Markdown("dim和alpha分层，为不同层的结构指定不同的dim和alpha（`DyLoRa`无法使用，卷积分层只有`LoRa-C3Lier、LoCon、LoHa`可以使用）")
+                    with gr.Row():
+                            plus_gr_dict["block_dims"] = gr.Textbox(lines=1, label="线性dim分层", placeholder="留空则不启用",\
+                                          info="25层（上中下），例如2,4,4,4,8,8,8,8,12,12,12,12,16,12,12,12,12,8,8,8,8,4,4,4,2", value="")
+                            plus_gr_dict["block_alphas"] = gr.Textbox(lines=1, label="线性alpha分层", placeholder="留空则不启用",\
+                                          info="25层（上中下），例如2,2,2,2,4,4,4,4,6,6,6,6,8,6,6,6,6,4,4,4,4,2,2,2,2", value="")
+                    with gr.Row():
+                            plus_gr_dict["conv_block_dims"] = gr.Textbox(lines=1, label="卷积dim分层", placeholder="留空则不启用",\
+                                            info="25层（上中下），例如2,2,2,2,4,4,4,4,6,6,6,6,8,6,6,6,6,4,4,4,4,2,2,2,2", value="")
+                            plus_gr_dict["conv_block_alphas"] = gr.Textbox(lines=1, label="卷积alpha分层", placeholder="留空则不启用",\
+                                            info="25层（上中下），例如2,2,2,2,4,4,4,4,6,6,6,6,8,6,6,6,6,4,4,4,4,2,2,2,2", value="")
+    
+        all_gr_dict = {**common_gr_dict, **sample_gr_dict, **plus_gr_dict}
+        
+        def dict_key_list_2_list(dict_key_list:list, gr_dict:dict):
+            """ 输入一个指定key顺序的字符串list，和一个gr组件变量的字典"""
+            """ 将gr_dict中键名与list中字符串相等的值变成一个gr组件列表 """
+            """ 同时返回parameter_list的长度，方便确认各标签页中组件数 """
+            list = []
+            for key in dict_key_list:
+                try:
+                    list.append(gr_dict[key])
+                except KeyError:
+                    print(f"Error: parameter_dict_key_list中{key}不存在")
+            list_len = len(list)
+            return list, list_len
+    
+        common_parameter_dict_key_list = ["train_data_dir",
+                          "use_reg",
+                          "reg_data_dir",
+                          "prior_loss_weight",
+                          "base_model_dir",
+                          "base_model_name",
+                          "use_vae",
+                          "vae_model_dir",
+                          "vae_model_name",
+                          "width",
+                          "height",
+                          "batch_size",
+                          "noise_offset",
+                          "keep_tokens",
+                          "min_snr_gamma",
+                          "max_train_method",
+                          "max_train_value",
+                          "output_dir",
+                          "output_name",
+                          "save_model_as",
+                          "save_every_n_epochs",
+                          "save_n_epoch_ratio",
+                          "save_last_n_epochs",
+                          "save_state",
+                          "use_wandb",
+                          "wandb_api_key",
+                          "log_tracker_name",
+                          "optimizer_type",
+                          "unet_lr",
+                          "text_encoder_lr",
+                          "lr_scheduler",
+                          "lr_warmup_steps",
+                          "lr_restart_cycles",
+                          "train_method",
+                          "network_dim",
+                          "network_alpha",
+                          "conv_dim",
+                          "conv_alpha",
+                          "unit",
+                          "v2",
+                          "v_parameterization",
+                          "lowram",
+                          "xformers",
+                          "cache_latents",
+                          "shuffle_caption",
+                          "enable_bucket"]
+        common_parameter_list, parameter_len_dict["common"] = dict_key_list_2_list(common_parameter_dict_key_list, common_gr_dict)
+        
+        sample_parameter_dict_key_list = ["sample_every_n_type",
+                          "sample_every_n_type_value",
+                          "sample_sampler",
+                          "sample_seed",
+                          "sample_width",
+                          "sample_height",
+                          "sample_scale",
+                          "sample_steps",
+                          "prompt",
+                          "negative"]
+        sample_parameter_list, parameter_len_dict["sample"] = dict_key_list_2_list(sample_parameter_dict_key_list, sample_gr_dict)
+    
+        plus_parameter_dict_key_list = ["use_retrain",
+                        "retrain_dir",
+                        "min_bucket_reso",
+                        "max_bucket_reso",
+                        "clip_skip",
+                        "max_token_length",
+                        "caption_extension",
+                        "seed",
+                        "network_train_unet_only",
+                        "network_train_text_encoder_only",
+                        "up_lr_weight",
+                        "mid_lr_weight",
+                        "down_lr_weight",
+                        "block_dims",
+                        "block_alphas",
+                        "conv_block_dims",
+                        "conv_block_alphas"]
+        plus_parameter_list, parameter_len_dict["plus"] = dict_key_list_2_list(plus_parameter_dict_key_list, plus_gr_dict)
+    
+        #注意，这几个list相加的顺序不能错,但是上面三个parameter_dict_key_list内的字符串元素顺序可以变(建议不要这么做)
+        all_parameter_list = common_parameter_list + sample_parameter_list + plus_parameter_list
+        all_parameter_dict_key_list = common_parameter_dict_key_list + sample_parameter_dict_key_list + plus_parameter_dict_key_list
+    
+        #在指定路径保存webui组件config文件
+        save_webui_config_button.click(fn=save_webui_config,
+                        inputs=[save_webui_config_dir, save_webui_config_name, write_files_dir],
+                        outputs=save_read_webui_config_title      
+        )
+        #获取指定路径下的所有以.toml扩展名的文件列表
+        read_webui_config_get_button.click(fn=read_webui_config_get,
+                          inputs=[read_webui_config_dir],
+                          outputs=[read_webui_config_name]       
+        )
+        #读取指定路径webui组件config文件
+        read_webui_config_button.click(fn=read_webui_config,
+                        inputs=[read_webui_config_dir, read_webui_config_name, write_files_dir] + all_parameter_list,
+                        outputs=[save_read_webui_config_title, write_files_dir] + all_parameter_list
+        )
+        #在指定路径下写入kohya_toml
+        write_files_button.click(fn=write_files,
+                    inputs=[write_files_dir],
+                    outputs=[write_files_title]
+        )
+        #确定常规参数
+        common_parameter_get_button.click(fn=common_parameter_get,
+                        inputs=common_parameter_list,
+                        outputs=[common_parameter_toml,  common_parameter_title]
+        )
+        #确定采样参数
+        sample_parameter_get_button.click(fn=sample_parameter_get,
+                        inputs=sample_parameter_list,
+                        outputs=[sample_parameter_toml,  sample_parameter_title]
+        )
+        #确定进阶参数
+        plus_parameter_get_button.click(fn=plus_parameter_get,
+                        inputs=plus_parameter_list,
+                        outputs=[plus_parameter_toml,  plus_parameter_title]
+        )
+        #确定全部参数
+        all_parameter_get_button.click(fn=all_parameter_get,
+                        inputs=all_parameter_list,
+                        outputs=[common_parameter_toml, sample_parameter_toml, plus_parameter_toml,  write_files_title]
+        )
+        #读取路径下的所有文件
+        base_model_get_button.click(fn=model_get,
+                      inputs=all_gr_dict["base_model_dir"],
+                      outputs=all_gr_dict["base_model_name"]
+        )
+        #读取路径下的所有文件
+        vae_model_get_button.click(fn=model_get,
+                      inputs=all_gr_dict["vae_model_dir"],
+                      outputs=all_gr_dict["vae_model_name"]
+        )
+        return demo
 
 
 if __name__ == "__main__":
-    demo.launch(share=False,inbrowser=False,inline=True,debug=False)
+    demo = create_demo()
+    demo.launch(share=False,inbrowser=True,inline=True,debug=True)
