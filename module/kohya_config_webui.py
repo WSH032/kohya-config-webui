@@ -336,7 +336,7 @@ def write_files(write_files_dir):
         dataset_arguments = { key: all.get(key) for key in ["cache_latents", "shuffle_caption", "enable_bucket"] }
         
         #training_arguments部分
-        training_arguments = { key: all.get(key) for key in ["batch_size", "noise_offset", "keep_tokens",\
+        training_arguments = { key: all.get(key) for key in ["train_batch_size", "noise_offset", "keep_tokens",\
                                       "min_bucket_reso", "max_bucket_reso",\
                                       "caption_extension", "max_token_length", "seed",\
                                       "xformers", "lowram"]
@@ -557,7 +557,7 @@ def create_demo(parser_input:list=[]):
                 with gr.Row():
                     common_gr_dict["width"]= gr.Slider(64, 1920, step=64, value=512, label="训练分辨率（宽）width")
                     common_gr_dict["height"] = gr.Slider(64, 1920, step=64, value=512, label="训练分辨率（高）height")
-                    common_gr_dict["batch_size"] = gr.Slider(1, 24, step=1, value=1, label="batch大小")
+                    common_gr_dict["train_batch_size"] = gr.Slider(1, 24, step=1, value=1, label="batch大小")
                 with gr.Row():
                     common_gr_dict["noise_offset"] = gr.Slider(0, 1, step=0.01, value=0.05, label="noise_offset")
                     common_gr_dict["keep_tokens"] = gr.Slider(0, 225, step=1, value=0, label="keep_tokens")
@@ -716,7 +716,7 @@ def create_demo(parser_input:list=[]):
                           "vae_model_name",
                           "width",
                           "height",
-                          "batch_size",
+                          "train_batch_size",
                           "noise_offset",
                           "keep_tokens",
                           "min_snr_gamma",
