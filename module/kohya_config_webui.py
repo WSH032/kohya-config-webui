@@ -274,23 +274,39 @@ def write_files(write_files_dir):
                                             "network_alpha", "network_train_unet_only",\
                                             "network_train_text_encoder_only"] }
         """ 生成如network_module = "locon.locon_kohya" """
-        #["LoRA-LierLa", "LoRA-C3Lier", "LoCon_Lycoris", "LoHa_Lycoris", "DyLoRa-LierLa", "DyLoRa-C3Lier"]
         #主要负责network_module的参数生成
+        
+        kohya_list = ["LoRA-LierLa", "LoRA-C3Lier"]
+        lycoris_list = ["LoCon_Lycoris", "LoHa_Lycoris", "IA3_Lycoris", "LoKR_Lycoris"]
+        dylora_list = ["DyLoRa-LierLa", "DyLoRa-C3Lier"]
+        
+        algo_list = ["lora", "loha", "ia3", "lokr"]
+            
         def network_module_param(train_method):
+            
+            #train_method可能值如下
+            #["LoRA-LierLa", "LoRA-C3Lier", "LoCon_Lycoris", "LoHa_Lycoris", "IA3_Lycoris", "LoKR_Lycoris", "DyLoRa-LierLa", "DyLoRa-C3Lier"]
+            
+            #卷积DyLoRa专门指定dim相同
             conv_dim = all.get("conv_dim") if train_method != "DyLoRa-C3Lier" else all.get("network_dim")
             conv_alpha = all.get("conv_alpha")
-            algo = "lora" if train_method == "LoCon_Lycoris" else "loha"
+            
             unit = all.get("unit")
-            if train_method in ["LoRA-LierLa", "LoRA-C3Lier"]:
+            
+            #kohya网络
+            if train_method in kohya_list:
                 network_module = "networks.lora"
                 if train_method == "LoRA-C3Lier":
                     network_module_args = [f"conv_dim={conv_dim}", f"conv_alpha={conv_alpha}"]
                 else:
                     network_module_args = []
-            elif train_method in ["LoCon_Lycoris", "LoHa_Lycoris"]:
+            #lycoris网络
+            elif train_method in lycoris_list:
+                algo = algo_list[ lycoris_list.index(train_method) ]
                 network_module = "lycoris.kohya"
                 network_module_args = [f"conv_dim={conv_dim}", f"conv_alpha={conv_alpha}", f"algo={algo}"]
-            elif train_method in ["DyLoRa-LierLa", "DyLoRa-C3Lier"]:
+            #dylora网络
+            elif train_method in dylora_list:
                 network_module = "networks.dylora"
                 if train_method == "DyLoRa-C3Lier":
                     network_module_args = [f"conv_dim={conv_dim}", f"conv_alpha={conv_alpha}", f"unit={unit}"]
@@ -298,22 +314,26 @@ def write_files(write_files_dir):
                     network_module_args = [f"unit={unit}"]
             else: 
                 warnings.warn("训练方法参数生成出错", UserWarning)
+                
             return network_module, network_module_args
+        
         network_module, network_module_args = network_module_param( all.get("train_method") )
         #更多network_args部分（主要为分层训练）
         network_lr_weight_args = [ f"{name}={all.get(name)}" for name in ["down_lr_weight", "mid_lr_weight", "up_lr_weight"] if all.get(name) ]
 
         def network_block_param(train_method):
+            #dylora不允许分层
             lst = ["block_dims", "block_alphas", "conv_block_dims", "conv_block_alphas"]
             if train_method == "LoRA-LierLa":
                 return [ f"{name}={all.get(name)}" for name in lst[0:1] if all.get(name) ]
-            if train_method in ["LoRA-C3Lier", "LoCon_Lycoris", "LoHa_Lycoris"]:
+            if train_method in ["LoRA-C3Lier"] + lycoris_list:
                 return [ f"{name}={all.get(name)}" for name in lst if all.get(name) ]
             else:
                 return []
+            
         network_block_args = network_block_param( all.get("train_method") )
         
-
+        #合成网络参数、分层参数
         network_args = []
         network_args.extend(network_module_args)
         network_args.extend(network_lr_weight_args)
@@ -620,7 +640,8 @@ def create_demo(parser_input:list=[]):
                     common_gr_dict["lr_restart_cycles"] = gr.Number(label="退火重启次数", value=1, precision=0)
                 with gr.Row():
                     common_gr_dict["train_method"] = gr.Dropdown(["LoRA-LierLa", "LoRA-C3Lier",\
-                                    "LoCon_Lycoris","LoHa_Lycoris",\
+                                    "LoCon_Lycoris", "LoHa_Lycoris",\
+                                    "IA3_Lycoris", "LoKR_Lycoris",\
                                     "DyLoRa-LierLa", "DyLoRa-C3Lier"],\
                                     label="train_method训练方法", value="LoRA-LierLa")
                     common_gr_dict["network_dim"] = gr.Number(label="线性dim", value=32, precision=0)
