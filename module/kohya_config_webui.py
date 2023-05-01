@@ -607,7 +607,7 @@ def create_demo(parser_input:list=[]):
                         common_gr_dict["save_last_n_epochs"] = gr.Slider(1, 499, step=1, value=499, label="最多保存n个（后面的出来就会把前面删了,优先级最高）")
                     with gr.Row():   
                         common_gr_dict["save_state"] = gr.Checkbox(label="保存学习状态",value=False)
-                    with gr.Accordion("启用远程记录", open=False):
+                    with gr.Accordion(" * 启用远程记录", open=False):
                             with gr.Row():
                                 gr.Markdown( "[你可以在这里找到api_key](https://wandb.ai/authorize)")
                             with gr.Row():
@@ -619,14 +619,15 @@ def create_demo(parser_input:list=[]):
                                     label="optimizer_type优化器类型（DA优化器两个学习率要一样）", value="AdamW8bit")
                     common_gr_dict["unet_lr"] = gr.Number(label="unet学习率", value=1e-4)
                     common_gr_dict["text_encoder_lr"] = gr.Number(label="text_encoder学习率", value=1e-5)
-                with gr.Row():
-                    common_gr_dict["optimizer_args"] = gr.Textbox(label="optimizer_args优化器参数(不会就不要填)", placeholder="如果你要填，就这样： decouple=True, weight_decay=0.5", value="")
+                with gr.Accordion("optimizer_args优化器参数(不会就不要填)", open=False):
+                    common_gr_dict["optimizer_args"] = gr.Textbox(label="optimizer_args", placeholder="如果你要填，就这样： decouple=True, weight_decay=0.5", value="")
                 
                 
                 """ 下拉框触发 """
                 def __optimizer_arg(optimizer_type:str, optimizer_args:str) -> str:
                     if optimizer_type == "DAdaptation":
-                        return "decouple=True, weight_decay=0.5"
+                        #return "decouple=True, weight_decay=0.5"
+                        return "decouple=True"
                     else:
                         return optimizer_args
                 optimizer_change_inputs = [ common_gr_dict["optimizer_type"], common_gr_dict["optimizer_args"] ]
@@ -653,7 +654,7 @@ def create_demo(parser_input:list=[]):
                         with gr.Column():
                             common_gr_dict["conv_alpha"] = gr.Number(label="卷积alpha", info="可以为小数", value=1)
                         with gr.Column():
-                            common_gr_dict["unit"] = gr.Number(label="分割单位unit(整数)", info="使用DyLoRa时，请让dim为unit的倍数", value=1, precision=0)
+                            common_gr_dict["unit"] = gr.Number(label="分割单位unit(整数)", info="使用DyLoRa时，请让dim为unit的倍数", value=4, precision=0)
                 with gr.Row():
                     common_gr_dict["v2"] = gr.Checkbox(label="v2")
                     common_gr_dict["v_parameterization"] = gr.Checkbox(label="v_parameterization")
@@ -662,7 +663,7 @@ def create_demo(parser_input:list=[]):
                     common_gr_dict["shuffle_caption"] = gr.Checkbox(label="shuffle_caption",value=True)
                     common_gr_dict["enable_bucket"] = gr.Checkbox(label="enable_bucket",value=True)
                 with gr.Row():  
-                    common_gr_dict["cache_latents"] = gr.Checkbox(label="cache_latents", value=True, info="缓存latents，注意开启这个功能时，训练过程中图像不能发生改变(比如反转AUG)")
+                    common_gr_dict["cache_latents"] = gr.Checkbox(label="cache_latents", value=True, info="缓存latents，注意开启这个功能时，训练过程中图像不能发生改变(比如增强AUG)")
                     common_gr_dict["cache_latents_to_disk"] = gr.Checkbox(label="cache_latents_to_disk", value=False, info="缓存latents到硬盘，下次直接载入(需要把cache_latents启用,缓存后不能改变图像)")
             with gr.TabItem("采样参数"):
                 sample_parameter_get_button = gr.Button("确定")
@@ -701,7 +702,7 @@ def create_demo(parser_input:list=[]):
                     plus_gr_dict["use_retrain"] = gr.Dropdown(["no","model","state"], label="是否使用重训练", value="no")
                     plus_gr_dict["retrain_dir"] = gr.Textbox(lines=1, label="重训练路径", placeholder="模型或者状态路径", value="")
                 with gr.Row():
-                    plus_gr_dict["weighted_captions"] = gr.Checkbox(label="开启权重标",value=False)
+                    plus_gr_dict["weighted_captions"] = gr.Checkbox(label="开启权重标",value=False,info="你开启了，最大token就能75个")
                     plus_gr_dict["min_bucket_reso"] = gr.Slider(64, 1920, step=64, value=256, label="最低桶分辨率")
                     plus_gr_dict["max_bucket_reso"] = gr.Slider(64, 1920, step=64, value=1024, label="最高桶分辨率")
                     plus_gr_dict["clip_skip"] = gr.Slider(0, 25, step=1, value=2, label="跳过层数")
