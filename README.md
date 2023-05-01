@@ -20,7 +20,7 @@ A WebUI for making config files used by kohya_sd_script
 
 ## 使用方法
 
-### （一）Colab版本：
+### （一）Colab版本（带有完整训练环境）：
 
 [![](https://img.shields.io/static/v1?message=Open%20in%20Colab&logo=googlecolab&labelColor=5c5c5c&color=0f80c1&label=%20&style=flat)](https://colab.research.google.com/github/WSH032/kohya-config-webui/blob/main/kohya_train_webui.ipynb)
 
@@ -47,12 +47,28 @@ python .\module\kohya_config_webui.py
 ```
 
 
-## Todo
+# Todo
 - [x] 增加上一次参数保存功能
 - [ ] 增加dataset_config.toml生成功能
 
+# Credit
 
-## 其他部分展示
+**Based on the work of [kohya-ss](https://github.com/kohya-ss/sd-scripts) , [Linaqruf](https://github.com/Linaqruf/kohya-trainer). Thanks to them.**
+- 这个项目使用的的训练脚本来自[kohya-ss](https://github.com/kohya-ss/sd-scripts)
+- notebook中部分代码（如下载模块）来自[Linaqruf](https://github.com/Linaqruf/kohya-trainer)
+
+**Attention: It's called kohya-config-webui, but I don't have a license for kohya. It just creates config files for kohya-ss.**
+- 这个插件叫kohya-config-webui，但是我没有kohya的授权，我只是为了说明它的作用是生成一个用于kohya-ss训练的config文件
+
+---
+
+上述两位作者和我目前采取的是Apache-2.0 license
+
+如果你基于此项目进行了修改、引用等用途，请注意原作者的协议。
+
+请在你使用的部分标明代码来源。
+
+# 其他部分展示
 ![0S2_@5B6638VJ 4%Y@TQDXK](https://user-images.githubusercontent.com/126865849/232079134-15154ccf-06ac-45a0-984f-244a6e8983f3.png)
 
 ![7$K@5833YHY(8T1 `3RE03L](https://user-images.githubusercontent.com/126865849/232079434-d471da6e-9e1d-457b-b635-4c37a838bf15.png)
