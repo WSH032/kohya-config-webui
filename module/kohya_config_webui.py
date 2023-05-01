@@ -427,8 +427,15 @@ def write_files(write_files_dir):
             saving_arguments.update( { "wandb_api_key":all.get("wandb_api_key") } )
         if all.get("log_tracker_name"):
             saving_arguments.update( { "log_tracker_name":all.get("log_tracker_name") } )
-
-                                      
+            
+            
+        #self_arguments部分
+        try:
+            self_arguments = toml.loads( all.get("self_arguments") )
+        except Exception:
+            self_arguments = {}
+                
+                
         ##合成总字典
         toml_dict = {"model_arguments":model_arguments,
                "additional_network_arguments":additional_network_arguments,
@@ -438,9 +445,11 @@ def write_files(write_files_dir):
                "sample_prompt_arguments":sample_prompt_arguments,
                "dreambooth_arguments":dreambooth_arguments,
                "saving_arguments":saving_arguments,
+               "self_arguments":self_arguments,
         }
         toml_str = toml.dumps(toml_dict)
         return toml_str
+    
     def sample_parameter2txt():
         #key_list = ["prompt", "negative", "sample_width", "sample_height", "sample_scale", "sample_steps", "sample_seed"]
         
@@ -727,7 +736,7 @@ def create_demo(parser_input:list=[]):
                         with gr.Column(scale=15):
                             plus_gr_dict["up_lr_weight"] = gr.Textbox(lines=1, label="OUT层学习率权重", placeholder="留空则不启用",\
                                           info="12层，例如1.5,1.5,1.5,1.5,1.0,1.0,1.0,1.0,0.5,0.5,0.5,0.5", value="")
-                    with gr.Accordion("分层示例", open=False):
+                    with gr.Accordion(" * 分层示例", open=False):
                         gr.Examples(examples = [ ["MIDD", "0,0,0,0,0,1,1,1,1,1,1,1", "1", "1,1,1,1,1,1,1,0,0,0,0,0"],\
                                                  ["OUTALL","0,0,0,0,0,0,0,0,0,0,0,0", "0", "1,1,1,1,1,1,1,1,1,1,1,1"],\
                                                  ["OUTD", "0,0,0,0,0,0,0,0,0,0,0,0", "0", "1,1,1,1,1,1,1,0,0,0,0,0"]    
@@ -745,6 +754,25 @@ def create_demo(parser_input:list=[]):
                                             info="25层（上中下），例如2,2,2,2,4,4,4,4,6,6,6,6,8,6,6,6,6,4,4,4,4,2,2,2,2", value="")
                             plus_gr_dict["conv_block_alphas"] = gr.Textbox(lines=1, label="卷积alpha分层", placeholder="留空则不启用",\
                                             info="25层（上中下），例如2,2,2,2,4,4,4,4,6,6,6,6,8,6,6,6,6,4,4,4,4,2,2,2,2", value="")
+                    with gr.Row():
+                            with gr.Accordion("额外参数(toml格式)", open=False):
+                                check_self_arguments_title = gr.Markdown("")
+                                chek_self_arguments_botton = gr.Button("格式检查，如果你格式错了，到时候写入文件时整个自定义参数都无效")
+                                self_arguments_placeholder_str = "如果你要用，按下面那样的toml格式填，以行为分隔:"
+                                plus_gr_dict["self_arguments"] = gr.Textbox(lines=10, label="你设置的参数会写被到toml的最下面，如果出现与预设参数重名，理论上你的参数优先级高，但尽量别这么做，可能会有意想不到的后果",\
+                                                                            placeholder=f"{self_arguments_placeholder_str}\nmax_grad_norm = 1\noutput_config = true")
+                                #检查格式
+                                def check_self_arguments(self_arguments:str) -> str:
+                                    try:
+                                        toml.loads(self_arguments)
+                                        return "格式正确"
+                                    except Exception as e:
+                                        return f"格式错误 error:{e}"
+                                chek_self_arguments_botton.click(fn=check_self_arguments,
+                                                                inputs=plus_gr_dict["self_arguments"],
+                                                                outputs=check_self_arguments_title
+                                )
+                                
     
         all_gr_dict = {**common_gr_dict, **sample_gr_dict, **plus_gr_dict}
         
